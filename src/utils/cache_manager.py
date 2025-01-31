@@ -6,10 +6,13 @@ import hashlib
 class CacheManager:
     def __init__(self, max_size_bytes: int = 100 * 1024 * 1024):
         self._caches: Dict[str, Dict] = {
-            'thread': {},      # 스레드 캐시
-            'embedding': {},   # 임베딩 캐시
-            'pos': {},        # 형태소 분석 캐시
-            'participants': {} # 참여자 목록 캐시
+            'thread': {},        # 스레드 캐시
+            'embedding': {},     # 임베딩 캐시
+            'pos': {},          # 형태소 분석 캐시
+            'participants': {},  # 참여자 목록 캐시
+            'overall_stats': {}, # 전체 통계 캐시
+            'pattern_stats': {}, # 패턴 분석 캐시
+            'interaction_stats': {} # 상호작용 분석 캐시
         }
         self._max_size_bytes = max_size_bytes
         self._last_access_times: Dict[str, Dict[str, datetime]] = {
@@ -19,8 +22,9 @@ class CacheManager:
     def generate_cache_key(self, cache_type: str, **kwargs) -> str:
         """캐시 키 생성
         Args:
-            cache_type: 캐시 타입 ('thread', 'embedding', 'pos', 'participants')
+            cache_type: 캐시 타입 ('thread', 'embedding', 'pos', 'participants', 'overall_stats', 'pattern_stats', 'interaction_stats')
             **kwargs: 키 생성에 사용될 파라미터들
+                - user_id: 사용자 ID
                 - chat_id: 채팅방 ID
                 - sender: 발신자
                 - start_time: 시작 시간 (str)
@@ -33,9 +37,16 @@ class CacheManager:
 
         key_parts = []
         
+        # 사용자 ID가 있는 경우
+        if 'user_id' in kwargs:
+            key_parts.append(str(kwargs['user_id']))
+        else:
+            raise ValueError("user_id is required for cache key generation")
         # 채팅방 ID가 있는 경우
         if 'chat_id' in kwargs:
             key_parts.append(str(kwargs['chat_id']))
+        else:
+            raise ValueError("chat_id is required for cache key generation")
         
         # 발신자가 있는 경우
         if 'sender' in kwargs:
@@ -105,4 +116,4 @@ class CacheManager:
         entries_to_remove = len(all_entries) // 2
         for cache_type, key, _ in all_entries[:entries_to_remove]:
             del self._caches[cache_type][key]
-            del self._last_access_times[cache_type][key] 
+            del self._last_access_times[cache_type][key]

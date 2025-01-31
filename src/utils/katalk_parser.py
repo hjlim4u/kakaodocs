@@ -1,7 +1,7 @@
 import re
 from datetime import datetime, timedelta
 import pandas as pd
-from models.chat_message import ChatMessage
+from src.models.chat import ChatMessage
 
 def determine_date_pattern(first_few_lines: list[str]) -> str:
     """Determine the date pattern used in the chat file"""
@@ -50,7 +50,7 @@ def parse_katalk_message(line: str, date_pattern: str) -> dict | None:
 
 def distribute_seconds(messages: list[dict]) -> list[dict]:
     """
-    동일 시간대 메시지들의 초 단위를 30초 중심으로 분포
+    동일 시간대 메시지들의 초 단위를 균등하게 분포
     
     Args:
         messages: 파싱된 메시지 리스트
@@ -58,32 +58,36 @@ def distribute_seconds(messages: list[dict]) -> list[dict]:
     Returns:
         초 단위가 할당된 메시지 리스트
     """
-    # 시간대별로 메시지 그룹화
-    time_groups = {}
+    if not messages:
+        return messages
+        
+    current_group = []
+    current_minute = messages[0]['datetime'].strftime('%Y%m%d%H%M')
+    
     for msg in messages:
-        dt = msg['datetime']
-        key = dt.strftime('%Y%m%d%H%M')
-        if key not in time_groups:
-            time_groups[key] = []
-        time_groups[key].append(msg)
-    
-    # 각 시간대 그룹 내에서 초 단위 분배
-    for msgs in time_groups.values():
-        if len(msgs) == 1:
-            # 단일 메시지는 30초로 설정
-            msgs[0]['datetime'] = msgs[0]['datetime'].replace(second=30)
-        else:
-            # 여러 메시지는 30초를 중심으로 분포
-            # 메시지 개수에 따라 간격 조정 (20초 범위 내에서)
-            total_range = min(20, 60 // len(msgs))
-            step = total_range / (len(msgs) - 1) if len(msgs) > 1 else 0
-            start_second = 30 - (total_range // 2)
+        msg_minute = msg['datetime'].strftime('%Y%m%d%H%M')
+        
+        # 새로운 분으로 넘어갔을 때 이전 그룹 처리
+        if msg_minute != current_minute:
+            # 현재 그룹의 메시지들에 초 분배
+            step = 60 / (len(current_group) + 1)  # +1로 0초와 60초 제외
+            for i, group_msg in enumerate(current_group):
+                new_second = int(step * (i + 1))  # 1부터 시작하여 균등 분배
+                group_msg['datetime'] = group_msg['datetime'].replace(second=new_second)
             
-            for i, msg in enumerate(msgs):
-                new_second = int(start_second + (i * step))
-                msg['datetime'] = msg['datetime'].replace(second=new_second)
+            current_group = []
+            current_minute = msg_minute
+            
+        current_group.append(msg)
     
-    return list(sum(time_groups.values(), []))
+    # 마지막 그룹 처리
+    if current_group:
+        step = 60 / (len(current_group) + 1)
+        for i, group_msg in enumerate(current_group):
+            new_second = int(step * (i + 1))
+            group_msg['datetime'] = group_msg['datetime'].replace(second=new_second)
+    
+    return messages
 
 async def parse_katalk_file(file_path: str) -> pd.DataFrame:
     """Parse KakaoTalk chat export file to DataFrame"""

@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  chat-analyzer:
+    build: .
+    volumes:
+      - ./data:/app/data  # 채팅 파일이 있는 디렉토리를 마운트
+    environment:
+      - PYTHONPATH=/app 

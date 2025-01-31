@@ -71,3 +71,11 @@ Talk_2025.1.15 19_40-1_ios.txt
 
 # Cursor
 .cursorrules
+
+# Analysis Results
+*.json
+*.csv
+*.jsonl
+*.jsonl.gz
+*.jsonl.gz.part
+*.jsonl.gz.part.1
